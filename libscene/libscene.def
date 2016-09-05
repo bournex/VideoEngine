@@ -1,0 +1,11 @@
+; libscene.def : 声明 DLL 的模块参数。
+
+LIBRARY
+
+EXPORTS
+    ; 此处可以是显式导出
+	LINDACLIENT_Init @1
+	LINDACLIENT_UnInit @2
+	LINDACLIENT_CreateScene @3
+	LINDACLIENT_CreateSceneFrom @4
+	LINDACLIENT_ModifyScene @5

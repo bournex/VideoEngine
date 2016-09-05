@@ -1,0 +1,26 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libscene", "libscene.vcxproj", "{AE16D474-E43F-4066-AF46-1AA8E83887E3}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "scenetest", "..\scenetest\scenetest.vcxproj", "{3CB66CB5-5E05-46CB-8E95-58A175D2674B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{AE16D474-E43F-4066-AF46-1AA8E83887E3}.Debug|Win32.ActiveCfg = Debug|Win32
+		{AE16D474-E43F-4066-AF46-1AA8E83887E3}.Debug|Win32.Build.0 = Debug|Win32
+		{AE16D474-E43F-4066-AF46-1AA8E83887E3}.Release|Win32.ActiveCfg = Release|Win32
+		{AE16D474-E43F-4066-AF46-1AA8E83887E3}.Release|Win32.Build.0 = Release|Win32
+		{3CB66CB5-5E05-46CB-8E95-58A175D2674B}.Debug|Win32.ActiveCfg = Debug|Win32
+		{3CB66CB5-5E05-46CB-8E95-58A175D2674B}.Debug|Win32.Build.0 = Debug|Win32
+		{3CB66CB5-5E05-46CB-8E95-58A175D2674B}.Release|Win32.ActiveCfg = Release|Win32
+		{3CB66CB5-5E05-46CB-8E95-58A175D2674B}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

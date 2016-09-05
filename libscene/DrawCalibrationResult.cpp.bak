@@ -1,0 +1,346 @@
+#include "stdafx.h" 
+#include "DrawCalibrationResult.h"
+//#include "D:\MotionDetectKLT\AbnormalDetTech\Include\VtGeometry.h"
+void ImageCoordinateCal_xz(CvPoint2D32f StartPoint, CvPoint2D32f* StopPoint, 
+						   int cols, int rows, float d, float f, float sintheta, float dx, float dz, float dy);
+void RealDisplacementCalxz(CvPoint2D32f StartPoint, CvPoint2D32f StopPoint, 
+						   int cols, int rows, float d, float f, float sintheta, float dy, float *dx, float *dz);
+void ImageCoordinateH2F(CvPoint2D32f StartPoint, CvPoint2D32f* StopPoint, 
+						int cols, int rows, float d, float f, float sintheta, float dy);
+void ImageCoordinateF2H(CvPoint2D32f StartPoint, CvPoint2D32f* StopPoint,  
+						int cols, int rows, float d, float f, float sintheta,float dy);
+#define CCD_SCALE	(3.6f/288.0f)
+void DrawCalibrationResult(Bitmap *m_pCurrFrameBitmap, float thetadiff, float d, float f, float sintheta, float people_height, float fCCDScale)
+{
+	int cols = m_pCurrFrameBitmap->GetWidth();
+	int rows = m_pCurrFrameBitmap->GetHeight();
+	int nxscale=1, nyscale=1;
+	f = f/(fCCDScale)/*CCD_SCALE*/;
+	while (cols>400)
+	{
+		cols/=2;
+		nxscale*=2;
+	}
+	while (rows>300)
+	{
+		rows/=2;
+		nyscale*=2;
+	}
+	float xrange, zrange, ftemp;
+	RealDisplacementCalxz(cvPoint2D32f(10.0,rows/2), cvPoint2D32f(cols-10.0, rows/2), cols, rows, d, f, sintheta, 0.0, &xrange,&ftemp);
+	RealDisplacementCalxz(cvPoint2D32f(cols/2,rows/2), cvPoint2D32f(cols/2, 10.0), cols, rows, d, f, sintheta, 0.0, &ftemp,&zrange);
+	int xn = ceil(xrange);
+	int zn = ceil(2*zrange);
+	xn = (xn%2==0)?xn+1:xn;
+	zn = (zn%2==0)?zn+1:zn;
+//	xn = min(abs(xn), 5);
+	zn = min(abs(zn), 251);
+	CvPoint2D32f CenterPoint = cvPoint2D32f(((float)cols-1)/2, ((float)rows-1)/2);
+	CvPoint2D32f *PointMat;
+	PointMat = new CvPoint2D32f[xn*zn];
+	PointMat[0].x = 10.0;
+	PointMat[0].y = rows-10.0;
+	float sinthetediff = sin(thetadiff), costhetadiff = cos(thetadiff);
+	float shiftx, shiftz;
+	//huaxian(m_pCurrFrameBitmap, x,d,f,theta)
+	//Graphics graphicMem(pBitmap);
+	//graphicMem.DrawLine();
+	Graphics graphicMem(m_pCurrFrameBitmap);
+	Pen PenVanishLine(Color(255,0,105,0), 1);
+	Pen PenVanishLine2(Color(255,0,105,0), 2);
+	Pen PenHuman(Color(255,200,190,0), 2);
+	Pen PenHead(Color(255, 155,0,0), 1);
+	Pen PenFoot(Color(255, 0,0,155), 1);
+
+	FontFamily  fontFamily(L"arial");
+	float fontSize = 12*nyscale;
+	Gdiplus::Font  font(&fontFamily, fontSize, FontStyleRegular, UnitPixel);
+	SolidBrush  orangeBrush(Color(255, 128, 0));
+
+	Point p1, p2;
+
+	for (int i=0; i<xn; i++)
+	{
+		for (int j=0; j<zn; j++)
+		{
+			shiftx = (j-(zn+1)/2)*sinthetediff+(i-(xn+1)/2)*costhetadiff;
+			shiftz = (j-(zn+1)/2)*costhetadiff-(i-(xn+1)/2)*sinthetediff;
+			ImageCoordinateCal_xz(CenterPoint, PointMat+i+j*xn, cols, rows, d, f, sintheta, shiftx, shiftz, 0.0);
+			if ((i==0)&&(j!=0))
+			{
+				p1.X = PointMat[i+j*xn].x*nxscale;
+				p1.Y = PointMat[i+j*xn].y*nyscale;
+				p2.X = PointMat[i+j*xn-xn].x*nxscale;
+				p2.Y = PointMat[i+j*xn-xn].y*nyscale;
+				if ((p1.X>0)&&(p1.X<cols*nxscale)&&(p2.X>0)&&(p2.X<cols*nxscale))
+					graphicMem.DrawLine(&PenVanishLine, p1, p2);
+			}
+			if (i!=0)
+			{
+				p1.X = PointMat[i+j*xn].x*nxscale;
+				p1.Y = PointMat[i+j*xn].y*nyscale;
+				//if ((p1.X>0)&&(p1.X<cols)&&(p2.X>0)&&(p2.X<cols))
+				//	graphicMem.DrawLine(&PenVanishLine, p1, p2);
+				if (j!=0)
+				{
+					p2.X = PointMat[i+j*xn-xn].x*nxscale;
+					p2.Y = PointMat[i+j*xn-xn].y*nyscale;
+					if ((p1.X>0)&&(p1.X<cols*nxscale)&&(p2.X>0)&&(p2.X<cols*nxscale))
+						graphicMem.DrawLine(&PenVanishLine, p1, p2);
+				}
+			}
+			
+			{
+				CvPoint2D32f temppoint;
+				ImageCoordinateF2H(PointMat[i+j*xn], &temppoint, cols, rows, d, f, sintheta, people_height);
+				p1.X = PointMat[i+j*xn].x*nxscale;
+				p1.Y = PointMat[i+j*xn].y*nyscale;
+				p2.X = temppoint.x*nxscale;
+				p2.Y = temppoint.y*nyscale;
+				if ((p1.X>0)&&(p1.X<cols*nxscale)&&(p2.X>0)&&(p2.X<cols*nxscale)&&(p1.Y>0)&&(p1.Y<rows*nyscale)&&(p2.Y>0)&&(p2.Y<rows*nyscale))
+				{
+					if (j%5==0)
+					{
+						graphicMem.DrawLine(&PenHuman, p1, p2);
+						graphicMem.DrawEllipse(&PenFoot, p1.X, p1.Y, 2,2);
+					}
+					if (p1.Y > (rows-50)*nyscale || p2.Y < 5*nyscale || j==zn-1)
+					{
+						graphicMem.DrawEllipse(&PenHead, p2.X, p2.Y, 2,2);
+						PointF	pointF(p2.X, p2.Y);
+						WCHAR wbuf[100];
+						swprintf(wbuf, L"%d", (p1.Y-p2.Y));
+						graphicMem.DrawString(wbuf, wcslen(wbuf), (const Gdiplus::Font*)&font, pointF, &orangeBrush);
+					}
+				}
+			}
+		}
+	}
+
+	//画消失线
+	int i=(xn+1)/4;
+	int j=-100;
+	CvPoint2D32f tempP1, tempP2;
+	shiftx = (j-(zn+1)/2)*sinthetediff+(i-(xn+1)/2)*costhetadiff;
+	shiftz = (j-(zn+1)/2)*costhetadiff-(i-(xn+1)/2)*sinthetediff;
+	ImageCoordinateCal_xz(CenterPoint, &tempP1, cols, rows, d, f, sintheta, shiftx, shiftz, 0.0);
+	j=100;
+	shiftx = (j-(zn+1)/2)*sinthetediff+(i-(xn+1)/2)*costhetadiff;
+	shiftz = (j-(zn+1)/2)*costhetadiff-(i-(xn+1)/2)*sinthetediff;
+	ImageCoordinateCal_xz(CenterPoint, &tempP2, cols, rows, d, f, sintheta, shiftx, shiftz, 0.0);
+	int tempx1,tempy1,tempx2,tempy2;
+	for (tempx1=cols/5;tempx1<cols;tempx1+=10)
+	{
+		tempy1 = (tempx1-tempP1.x)/(tempP2.x-tempP1.x)*(tempP2.y-tempP1.y)+tempP1.y;
+		if ((tempy1>0)&&(tempy1<rows))
+			break;
+	}
+	p1.X = tempx1*nxscale;
+	p1.Y = tempy1*nyscale;
+
+	tempx2 = 10;
+	tempy2 = (tempx2-tempP1.x)/(tempP2.x-tempP1.x)*(tempP2.y-tempP1.y)+tempP1.y;
+	if ((tempy2>0)&&(tempy2<rows))
+	{
+		p2.X = tempx2*nxscale;
+		p2.Y = tempy2*nyscale;
+		graphicMem.DrawLine(&PenVanishLine2, p1, p2);
+	}
+	tempx2 = cols-10;
+	tempy2 = (tempx2-tempP1.x)/(tempP2.x-tempP1.x)*(tempP2.y-tempP1.y)+tempP1.y;
+	if ((tempy2>0)&&(tempy2<rows))
+	{
+		p2.X = tempx2*nxscale;
+		p2.Y = tempy2*nyscale;
+		graphicMem.DrawLine(&PenVanishLine2, p1, p2);
+	}
+	tempy2 = 10;
+	tempx2 = (tempy2-tempP1.y)/(tempP2.y-tempP1.y)*(tempP2.x-tempP1.x)+tempP1.x;
+	if ((tempx2>0)&&(tempx2<cols))
+	{
+		p2.X = tempx2*nxscale;
+		p2.Y = tempy2*nyscale;
+		graphicMem.DrawLine(&PenVanishLine2, p1, p2);
+	}
+	tempy2 = rows-10;
+	tempx2 = (tempy2-tempP1.y)/(tempP2.y-tempP1.y)*(tempP2.x-tempP1.x)+tempP1.x;
+	if ((tempx2>0)&&(tempx2<cols))
+	{
+		p2.X = tempx2*nxscale;
+		p2.Y = tempy2*nyscale;
+		graphicMem.DrawLine(&PenVanishLine2, p1, p2);
+	}
+
+	i=3*(xn+1)/4;
+	j=-100;
+	shiftx = (j-(zn+1)/2)*sinthetediff+(i-(xn+1)/2)*costhetadiff;
+	shiftz = (j-(zn+1)/2)*costhetadiff-(i-(xn+1)/2)*sinthetediff;
+	ImageCoordinateCal_xz(CenterPoint, &tempP1, cols, rows, d, f, sintheta, shiftx, shiftz, 0.0);
+	j=100;
+	shiftx = (j-(zn+1)/2)*sinthetediff+(i-(xn+1)/2)*costhetadiff;
+	shiftz = (j-(zn+1)/2)*costhetadiff-(i-(xn+1)/2)*sinthetediff;
+	ImageCoordinateCal_xz(CenterPoint, &tempP2, cols, rows, d, f, sintheta, shiftx, shiftz, 0.0);
+
+	for (tempx1=cols/5;tempx1<cols;tempx1+=10)
+	{
+		tempy1 = (tempx1-tempP1.x)/(tempP2.x-tempP1.x)*(tempP2.y-tempP1.y)+tempP1.y;
+		if ((tempy1>0)&&(tempy1<rows))
+			break;
+	}
+	p1.X = tempx1*nxscale;
+	p1.Y = tempy1*nyscale;
+
+	tempx2 = 10;
+	tempy2 = (tempx2-tempP1.x)/(tempP2.x-tempP1.x)*(tempP2.y-tempP1.y)+tempP1.y;
+	if ((tempy2>0)&&(tempy2<rows))
+	{
+		p2.X = tempx2*nxscale;
+		p2.Y = tempy2*nyscale;
+		graphicMem.DrawLine(&PenVanishLine2, p1, p2);
+	}
+	tempx2 = cols-10;
+	tempy2 = (tempx2-tempP1.x)/(tempP2.x-tempP1.x)*(tempP2.y-tempP1.y)+tempP1.y;
+	if ((tempy2>0)&&(tempy2<rows))
+	{
+		p2.X = tempx2*nxscale;
+		p2.Y = tempy2*nyscale;
+		graphicMem.DrawLine(&PenVanishLine2, p1, p2);
+	}
+	tempy2 = 10;
+	tempx2 = (tempy2-tempP1.y)/(tempP2.y-tempP1.y)*(tempP2.x-tempP1.x)+tempP1.x;
+	if ((tempx2>0)&&(tempx2<cols))
+	{
+		p2.X = tempx2*nxscale;
+		p2.Y = tempy2*nyscale;
+		graphicMem.DrawLine(&PenVanishLine2, p1, p2);
+	}
+	tempy2 = rows-10;
+	tempx2 = (tempy2-tempP1.y)/(tempP2.y-tempP1.y)*(tempP2.x-tempP1.x)+tempP1.x;
+	if ((tempx2>0)&&(tempx2<cols))
+	{
+		p2.X = tempx2*nxscale;
+		p2.Y = tempy2*nyscale;
+		graphicMem.DrawLine(&PenVanishLine2, p1, p2);
+	}
+
+
+	delete[] PointMat;
+}
+void ImageCoordinateCal_xz(CvPoint2D32f StartPoint, CvPoint2D32f* StopPoint, 
+						   int cols, int rows, float d, float f, float sintheta, float dx, float dz, float dy)
+{
+	//计算图像中的点StarPoint在实际空间中移动dx,dz时，到达的点StopPoint在图像中的坐标
+	//d：摄像头高度，f：焦距，sintheta：摄像头与垂直位置夹角的正弦值，dy是点距离地面的高度
+	float fcols = cols-1;
+	float frows = rows-1;
+	float u = StartPoint.x;
+	float v = StartPoint.y;
+	
+	u -= fcols/2;
+	v = frows/2-v;
+	float a = sintheta;
+	float b = sqrt(1-a*a);
+
+	float temp = (a*v-f*b)/d/f;
+	float temp2 = (1-a*temp*dz);
+	float x = (u-temp*f*dx)/temp2;
+	float y = (v-temp*f*b*dz)/temp2;
+
+	x += fcols/2;
+	y = frows/2-y;	
+
+	StopPoint->x = x;
+	StopPoint->y = y;
+}
+void RealDisplacementCalxz(CvPoint2D32f StartPoint, CvPoint2D32f StopPoint, 
+						   int cols, int rows, float d, float f, float sintheta, float dy, float *dx, float *dz)
+{
+	//计算图像中从StarPoint移到StopPoint的点在XZ平面的实际位移， dy距离地面高度
+	//d：摄像头高度，f：焦距，sintheta：摄像头与垂直位置夹角的正弦值
+	float fcols = cols-1;
+	float frows = rows-1;
+	float u = StartPoint.x;
+	float v = StartPoint.y;
+	float x = StopPoint.x;
+	float y = StopPoint.y;
+	
+	u -= fcols/2;
+	v = frows/2-v;
+	x -= fcols/2;
+	y = frows/2-y;
+
+	d -= dy;
+
+	float a = sintheta;
+	float b = sqrt(1-a*a);
+	float A11 = a*v-f*b;
+	float A12 = x*(-a*a*v/f+a*b);
+	float A22 = -a*a*y*v/f+a*b*y+a*b*v-f*b*b;
+	float iA11 = 1/A11;
+	float iA22 = 1/A22;
+	float iA12 = -A12/A11/A22;
+	*dx = iA11*(u-x)*d+iA12*(v-y)*d;
+	*dz = iA22*(v-y)*d;
+}
+//计算从头到脚的关系，StartPoint:头，StopPoint:脚，dy:人的高度
+void ImageCoordinateH2F(CvPoint2D32f StartPoint, CvPoint2D32f* StopPoint, 
+						int cols, int rows, float d, float f, float sintheta, float dy)
+{
+	//计算图像中的点StarPoint在实际空间中移动dx,dy时，到达的点StopPoint在图像中的坐标，仅适用于StopPoint在地平面
+	//d：摄像头高度，f：焦距，sintheta：摄像头与垂直位置夹角的正弦值
+	float fcols = cols-1;
+	float frows = rows-1;
+	float x = StartPoint.x;
+	float y = StartPoint.y;
+	
+	x -= fcols/2;
+	y = frows/2-y;
+	float a = sintheta;
+	float b = sqrt(1-a*a);
+
+	double g22 = 1+dy/(d-dy)*a*a;
+	double g23 = -dy/(d-dy)*f*a*b;
+	double g32 = -dy/(d-dy)*a*b/f;
+	double g33 = 1+dy/(d-dy)*b*b;
+
+	double temp2 = g32*y+g33;
+	double u = x/temp2;
+	double v = (g22*y+g23)/temp2;
+
+	u += fcols/2;
+	v = frows/2-v;	
+
+	StopPoint->x = u;
+	StopPoint->y = v;
+}
+//计算从头到脚的关系，StartPoint:脚，StopPoint:头，dy:人的高度
+void ImageCoordinateF2H(CvPoint2D32f StartPoint, CvPoint2D32f* StopPoint,  
+						int cols, int rows, float d, float f, float sintheta,float dy)
+{
+	//计算图像中的点StarPoint在实际空间中向上移动dy时，到达的点StopPoint在图像中的坐标，仅适用于StarPoint在地平面
+	//d：摄像头高度，f：焦距，sintheta：摄像头与垂直位置夹角的正弦值
+	float fcols = cols-1;
+	float frows = rows-1;
+	float x = StartPoint.x;
+	float y = StartPoint.y;
+	x -= fcols/2;
+	y = frows/2-y;
+	float a = sintheta;
+	float b = sqrt(1-a*a);
+
+	float h22 = 1-dy/d*a*a;
+	float h23 = dy/d*f*b*a;
+	float h32 = dy/d*b*a/f;
+	float h33 = 1-dy/d*b*b;
+
+
+	double temp2 = h32*y+h33;
+	double u = x/temp2;
+	double v = (h22*y+h23)/temp2;
+
+	u += fcols/2;
+	v = frows/2-v;	
+
+	StopPoint->x = u;
+	StopPoint->y = v;
+}
